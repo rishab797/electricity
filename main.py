@@ -1,22 +1,27 @@
+
+
 from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
-import dill  # or use joblib if your model uses that
 import numpy as np
+import dill
 
-# --- API Key setup ---
+# Security setup
 API_KEY = "my-secret-key"
 API_KEY_NAME = "access-token"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 def verify_api_key(api_key: str = Security(api_key_header)):
+    print(f"🔐 Incoming API key: {api_key}")  # Debugging line
     if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Could not validate API key")
     return api_key
 
-# --- App & CORS ---
+# FastAPI app
 app = FastAPI()
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,11 +30,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Load model ---
+# Load model
 with open("model1.pkl", "rb") as f:
     model = dill.load(f)
 
-# --- Request Schema ---
+# Input schema
 class InputData(BaseModel):
     Temperature: float
     Humidity: float
@@ -48,10 +53,10 @@ class InputData(BaseModel):
     RED_Low: bool
     RED_Medium: bool
 
-# --- Predict Route ---
+# Prediction route
 @app.post("/predict")
 def predict(data: InputData, api_key: str = Depends(verify_api_key)):
-    input_array = np.array([[
+    features = np.array([[
         data.Temperature,
         data.Humidity,
         data.Wind_Speed,
@@ -69,6 +74,7 @@ def predict(data: InputData, api_key: str = Depends(verify_api_key)):
         int(data.RED_Low),
         int(data.RED_Medium)
     ]])
-    prediction = model.predict(input_array)
+
+    prediction = model.predict(features)
     return {"prediction": prediction[0]}
 

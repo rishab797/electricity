@@ -7,21 +7,20 @@ from pydantic import BaseModel
 import numpy as np
 import dill
 
-# Security setup
-API_KEY = "my-secret-key"
+# API key setup
+API_KEY = "1234"
 API_KEY_NAME = "access-token"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 def verify_api_key(api_key: str = Security(api_key_header)):
-    print(f"🔐 Incoming API key: {api_key}")  # Debugging line
+    print(f"🔐 Received API Key: {api_key}")  # Debug print
     if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Could not validate API key")
     return api_key
 
-# FastAPI app
+# FastAPI app setup
 app = FastAPI()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load model
+# Load the model
 with open("model1.pkl", "rb") as f:
     model = dill.load(f)
 
@@ -56,7 +55,7 @@ class InputData(BaseModel):
 # Prediction route
 @app.post("/predict")
 def predict(data: InputData, api_key: str = Depends(verify_api_key)):
-    features = np.array([[
+    input_array = np.array([
         data.Temperature,
         data.Humidity,
         data.Wind_Speed,
@@ -73,8 +72,7 @@ def predict(data: InputData, api_key: str = Depends(verify_api_key)):
         data.Time_in_hours,
         int(data.RED_Low),
         int(data.RED_Medium)
-    ]])
-
-    prediction = model.predict(features)
+    ]).reshape(1, -1)
+    
+    prediction = model.predict(input_array)
     return {"prediction": prediction[0]}
-
